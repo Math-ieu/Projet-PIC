@@ -1,0 +1,6 @@
+aws:
+  region: "eu-west-1"
+  bucket_name: "mvtec-ad-project-data"
+  model_bucket_name: "mvtec-ad-project-models"
+  ecr_repo_name: "anomaly-detection-lambda"
+  lambda_function_name: "anomaly-detection-inference"

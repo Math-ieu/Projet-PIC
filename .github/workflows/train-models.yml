@@ -1,0 +1,48 @@
+name: Train and Evaluate Models
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'configs/**'
+  workflow_dispatch:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-1
+          
+      - name: Download dataset
+        run: python data/scripts/download_dataset.py
+        
+      - name: Train models
+        run: python scripts/train_all_models.py
+        
+      - name: Select best model
+        run: python scripts/select_best_model.py
+        
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: training-results
+          path: |
+            training_results.json
+            best_model_info.json
+            checkpoints/
