@@ -16,13 +16,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constants
-DATASET_URL = "https://www.mvtec.com/lib/mvtec_ad/mvtec_anomaly_detection.tar.xz" # Direct link often works or needs update
+DATASET_URL = "https://www.mydrive.ch/shares/38536/3830184030e49fe74747669442f0f283/download/420938113-1629960298/mvtec_anomaly_detection.tar.xz" # Direct link often works or needs update
 RAW_DATA_DIR = "data/raw"
 TAR_FILE_PATH = os.path.join(RAW_DATA_DIR, "mvtec_anomaly_detection.tar.xz")
 
 def download_file(url, filename):
     """Download file with progress bar."""
-    response = requests.get(url, stream=True)
+    response = requests.get(url, stream=True) 
     total_size_in_bytes = int(response.headers.get('content-length', 0))
     block_size = 1024 # 1 Kibibyte
     progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)

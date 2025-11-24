@@ -4,9 +4,10 @@ from .callbacks import get_callbacks
 from ..evaluation.metrics import get_metrics
 
 class Trainer:
-    def __init__(self, model, model_name, config):
+    def __init__(self, model, model_name, config, run_name=None):
         self.model = model
         self.model_name = model_name
+        self.run_name = run_name
         self.config = config
         self.training_config = config.get('training', {})
         
@@ -23,7 +24,7 @@ class Trainer:
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
         
     def train(self, train_dataset, val_dataset, epochs):
-        callbacks = get_callbacks(self.model_name, self.config)
+        callbacks = get_callbacks(self.model_name, self.config, self.run_name)
         
         history = self.model.fit(
             train_dataset,

@@ -7,6 +7,10 @@ st.set_page_config(page_title="Upload & Predict", page_icon="📤")
 
 st.header("📤 Upload Image for Anomaly Detection")
 
+# Category selection
+categories = ['bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile', 'toothbrush', 'transistor', 'wood', 'zipper']
+selected_category = st.selectbox("Select Category", categories)
+
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
@@ -17,5 +21,5 @@ if uploaded_file is not None:
         with st.spinner("Analyzing image..."):
             # Reset file pointer
             uploaded_file.seek(0)
-            result = predict_anomaly(uploaded_file)
+            result = predict_anomaly(uploaded_file, category=selected_category)
             display_prediction(image, result)

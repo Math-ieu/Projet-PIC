@@ -10,8 +10,16 @@ variable "model_bucket_name" {
   default = "mvtec-ad-project-models"
 }
 
-variable "ecr_repo_name" {
-  default = "anomaly-detection-lambda"
+variable "training_repo_name" {
+  default = "mvtec-ad-training"
+}
+
+variable "app_repo_name" {
+  default = "mvtec-ad-streamlit"
+}
+
+variable "inference_repo_name" {
+  default = "mvtec-ad-inference"
 }
 
 variable "lambda_function_name" {

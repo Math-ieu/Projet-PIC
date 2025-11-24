@@ -29,20 +29,21 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-1
           
-      - name: Download dataset
-        run: python data/scripts/download_dataset.py
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
         
-      - name: Train models
-        run: python scripts/train_all_models.py
-        
-      - name: Select best model
-        run: python scripts/select_best_model.py
-        
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: training-results
-          path: |
-            training_results.json
-            best_model_info.json
-            checkpoints/
+      - name: Build and Push Training Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: mvtec-ad-training
+          IMAGE_TAG: latest
+        run: |
+          docker build -f Dockerfile.train -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          
+      - name: Trigger SageMaker Training
+        env:
+          TRAINING_IMAGE_URI: ${{ steps.login-ecr.outputs.registry }}/mvtec-ad-training:latest
+          AWS_DEFAULT_REGION: eu-west-1
+        run: python scripts/trigger_sagemaker_training.py

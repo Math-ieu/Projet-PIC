@@ -14,18 +14,27 @@ module "iam" {
 
 module "ecr" {
   source = "./modules/ecr"
-  repo_name = var.ecr_repo_name
+  training_repo_name = var.training_repo_name
+  app_repo_name = var.app_repo_name
+  inference_repo_name = var.inference_repo_name
 }
 
 module "lambda" {
   source = "./modules/lambda"
   function_name = var.lambda_function_name
   role_arn = module.iam.lambda_role_arn
-  image_uri = "${module.ecr.repository_url}:latest"
+  image_uri = "${module.ecr.inference_repo_url}:latest"
 }
 
-# Optional SageMaker
-# module "sagemaker" {
-#   source = "./modules/sagemaker"
-#   role_arn = module.iam.lambda_role_arn # Should be a separate role in prod
-# }
+# SageMaker Training Setup
+module "sagemaker" {
+  source = "./modules/sagemaker"
+}
+
+# Streamlit App Hosting
+module "app_runner" {
+  source = "./modules/app_runner"
+  service_name = "mvtec-ad-streamlit-app"
+  image_identifier = "${module.ecr.app_repo_url}:latest"
+  port = "8501"
+}

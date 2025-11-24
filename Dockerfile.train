@@ -1,0 +1,18 @@
+FROM tensorflow/tensorflow:2.14.0-gpu
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+# We might need to create a requirements.txt if not exists, or just install what we know we need
+RUN pip install pandas scikit-learn pyyaml
+
+# Copy source code
+COPY src/ src/
+COPY scripts/train_all_models.py scripts/
+
+# Set python path
+ENV PYTHONPATH="${PYTHONPATH}:/app"
+
+# Entrypoint
+ENTRYPOINT ["python", "scripts/train_all_models.py"]
