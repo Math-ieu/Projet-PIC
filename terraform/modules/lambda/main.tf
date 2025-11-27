@@ -50,7 +50,12 @@ resource "aws_lambda_permission" "apigw" {
 resource "aws_api_gateway_deployment" "deployment" {
   depends_on = [aws_api_gateway_integration.integration]
   rest_api_id = aws_api_gateway_rest_api.api.id
-  stage_name  = "prod"
+}
+
+resource "aws_api_gateway_stage" "prod" {
+  deployment_id = aws_api_gateway_deployment.deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  stage_name    = "prod"
 }
 
 variable "function_name" { type = string }
@@ -58,5 +63,5 @@ variable "role_arn" { type = string }
 variable "image_uri" { type = string }
 
 output "api_endpoint" {
-  value = "${aws_api_gateway_deployment.deployment.invoke_url}/predict"
+  value = "${aws_api_gateway_stage.prod.invoke_url}/predict"
 }

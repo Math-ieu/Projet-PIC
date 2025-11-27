@@ -17,7 +17,7 @@ def augment_image(image, seed=None):
         image = tf.image.random_saturation(image, lower=0.9, upper=1.1, seed=seed)
         image = tf.image.random_hue(image, max_delta=0.02, seed=seed)
         
-    return image
+    return image 
 
 def get_augmentation_layer():
     """

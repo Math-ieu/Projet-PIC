@@ -1,6 +1,7 @@
 resource "aws_ecr_repository" "training_repo" {
   name = var.training_repo_name
   image_tag_mutability = "MUTABLE"
+  force_delete = true
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -9,6 +10,7 @@ resource "aws_ecr_repository" "training_repo" {
 resource "aws_ecr_repository" "app_repo" {
   name = var.app_repo_name
   image_tag_mutability = "MUTABLE"
+  force_delete = true
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -17,6 +19,7 @@ resource "aws_ecr_repository" "app_repo" {
 resource "aws_ecr_repository" "inference_repo" {
   name = var.inference_repo_name
   image_tag_mutability = "MUTABLE"
+  force_delete = true
   image_scanning_configuration {
     scan_on_push = true
   }
