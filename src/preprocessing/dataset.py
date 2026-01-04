@@ -10,6 +10,16 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+@tf.function
+def process_image(img):
+    img = tf.image.random_flip_left_right(img)
+    img = tf.image.random_flip_up_down(img)
+    img = tf.image.random_brightness(img, max_delta=0.2)
+    img = tf.image.random_contrast(img, lower=0.8, upper=1.2)
+    img = tf.clip_by_value(img, 0, 255)
+    img = tf.cast(img, tf.uint8)
+    return img
+
 def augment_image(image_path, save_dir, prefix, count):
     """
     Reads an image, applies random augmentations, and saves it.
@@ -18,15 +28,8 @@ def augment_image(image_path, save_dir, prefix, count):
         img = tf.io.read_file(image_path)
         img = tf.image.decode_png(img, channels=3)
         
-        # Random augmentations
-        img = tf.image.random_flip_left_right(img)
-        img = tf.image.random_flip_up_down(img)
-        img = tf.image.random_brightness(img, max_delta=0.2)
-        img = tf.image.random_contrast(img, lower=0.8, upper=1.2)
-        
-        # Ensure valid range [0, 255]
-        img = tf.clip_by_value(img, 0, 255)
-        img = tf.cast(img, tf.uint8)
+        # Apply augmentations (compiled)
+        img = process_image(img)
         
         encoded_img = tf.image.encode_png(img)
         
@@ -39,64 +42,105 @@ def augment_image(image_path, save_dir, prefix, count):
         logger.warning(f"Failed to augment image {image_path}: {e}")
         return None
 
-def balance_classes(df, target_count=1000, save_root="data/processed/augmented"):
+def balance_classes(df, target_count=None, save_root="data/processed/augmented"):
     """
-    Balances classes in the DataFrame by augmenting rare classes to reach target_count.
+    Balances classes in the DataFrame by augmenting anomaly classes to match the 'good' class count.
+    The 'good' class is NOT augmented.
     """
     if df.empty:
         return df
         
-    logger.info(f"Balancing classes to target count: {target_count}...")
-    
     # Create augmentation directory
-    if os.path.exists(save_root):
-        # Optional: Clear previous augmentations to avoid staleness, 
-        # but might be slow if we re-run often. For now, let's keep it simple and overwrite/add.
-        pass
-    else:
+    if not os.path.exists(save_root):
         os.makedirs(save_root, exist_ok=True)
         
     new_rows = []
     
-    # Group by label (which maps to a specific Category_DefectType)
-    # We need to know the label_str to name files appropriately
-    unique_labels = df['label'].unique()
+    # Identify 'good' class and determine target count
+    # We assume there is only one 'good' class per category in the current context
+    # or multiple 'good' classes if multiple categories are loaded.
+    # We will balance per category.
     
-    for label in unique_labels:
-        class_subset = df[df['label'] == label]
-        current_count = len(class_subset)
+    categories = df['category'].unique()
+    
+    for cat in categories:
+        cat_df = df[df['category'] == cat]
         
-        if current_count >= target_count:
-            continue
+        # Find the 'good' class for this category
+        # Convention: label_str ends with '_good'
+        good_class_df = cat_df[cat_df['label_str'].str.endswith('_good')]
+        
+        if good_class_df.empty:
+            logger.warning(f"No 'good' class found for category '{cat}'. Skipping balancing for this category.")
+            # Just add all rows as is (or maybe augment to max? User said match good class)
+            # Fallback: use max count of any class
+            target = cat_df['label'].value_counts().max()
+        else:
+            target = len(good_class_df)
             
-        needed = target_count - current_count
-        label_str = class_subset.iloc[0]['label_str']
-        category = class_subset.iloc[0]['category']
+        logger.info(f"Category '{cat}': Target count (based on 'good' class) = {target}")
         
-        logger.info(f"Augmenting class '{label_str}': {current_count} -> {target_count} (+{needed})")
+        unique_labels = cat_df['label'].unique()
         
-        # Create class specific save dir
-        class_save_dir = os.path.join(save_root, label_str)
-        os.makedirs(class_save_dir, exist_ok=True)
-        
-        # Source images to augment
-        source_images = class_subset['filepath'].tolist()
-        
-        for i in range(needed):
-            # Randomly select a source image
-            src_img = random.choice(source_images)
+        for label in unique_labels:
+            class_subset = cat_df[cat_df['label'] == label]
+            current_count = len(class_subset)
+            label_str = class_subset.iloc[0]['label_str']
             
-            # Augment and save
-            new_path = augment_image(src_img, class_save_dir, "aug", i)
+            # If it's the good class, we just keep it (and load existing augs if any? No, user said NO aug for good)
+            # But wait, if we run this multiple times, we might have existing augs.
+            # The input df usually comes from raw loading in load_and_split_data.
+            # So we just pass.
             
-            if new_path:
-                new_rows.append({
-                    'filepath': new_path,
-                    'category': category,
-                    'label': label,
-                    'label_str': label_str
-                })
+            is_good_class = label_str.endswith('_good')
+            
+            if is_good_class:
+                # Just keep original rows. 
+                # We do NOT look for augmented files for good class.
+                # But we must ensure we don't duplicate if we are re-running on already augmented df?
+                # The input df usually comes from raw loading in load_and_split_data.
+                # So we just pass.
+                continue
                 
+            # For anomaly classes:
+            class_save_dir = os.path.join(save_root, label_str)
+            
+            # 1. Load existing augmented images for this anomaly class
+            if os.path.exists(class_save_dir):
+                existing_aug_imgs = glob.glob(os.path.join(class_save_dir, "*.png"))
+                for img_path in existing_aug_imgs:
+                    new_rows.append({
+                        'filepath': img_path,
+                        'category': cat,
+                        'label': label,
+                        'label_str': label_str
+                    })
+                current_count += len(existing_aug_imgs)
+                
+            if current_count >= target:
+                logger.info(f"Class '{label_str}' already has {current_count} samples (>= {target}).")
+                continue
+                
+            needed = target - current_count
+            logger.info(f"Augmenting anomaly class '{label_str}': {current_count} -> {target} (+{needed})")
+            
+            os.makedirs(class_save_dir, exist_ok=True)
+            
+            # Source images to augment
+            source_images = class_subset['filepath'].tolist()
+            start_idx = len(glob.glob(os.path.join(class_save_dir, "*.png")))
+            
+            for i in range(needed):
+                src_img = random.choice(source_images)
+                new_path = augment_image(src_img, class_save_dir, "aug", start_idx + i)
+                if new_path:
+                    new_rows.append({
+                        'filepath': new_path,
+                        'category': cat,
+                        'label': label,
+                        'label_str': label_str
+                    })
+
     if new_rows:
         augmented_df = pd.DataFrame(new_rows)
         df = pd.concat([df, augmented_df], ignore_index=True)
